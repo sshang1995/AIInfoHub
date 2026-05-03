@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SourceType {
+  COMPANY_BLOG
+  RSS
+  X_ACCOUNT
+}
+
+enum ContentStatus {
+  PENDING
+  ENRICHED
+  PUBLISHED
+  REJECTED
+}
+
+enum SubscriberStatus {
+  PENDING
+  ACTIVE
+  UNSUBSCRIBED
+}
+
+enum CampaignStatus {
+  DRAFT
+  SENDING
+  SENT
+  FAILED
+}
+
+model Source {
+  id             String     @id @default(cuid())
+  name           String
+  slug           String     @unique
+  sourceType     SourceType
+  platform       String?
+  handle         String?
+  url            String?
+  rssUrl         String?
+  active         Boolean    @default(true)
+  authorityScore Float      @default(0.5)
+  category       String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  contentItems ContentItem[]
+
+  @@map("sources")
+}
+
+model ContentItem {
+  id              String        @id @default(cuid())
+  sourceId        String
+  externalId      String?
+  title           String
+  url             String        @unique
+  rawText         String?       @db.Text
+  cleanedText     String?       @db.Text
+  summary         String?       @db.Text
+  summaryZh       String?       @db.Text
+  whyItMatters    String?       @db.Text
+  whyItMattersZh  String?       @db.Text
+  developerTakeaway String?     @db.Text
+  developerTakeawayZh String?   @db.Text
+  contentType     String?
+  publishedAt     DateTime?
+  fetchedAt       DateTime      @default(now())
+  score           Float         @default(0)
+  status          ContentStatus @default(PENDING)
+  featured        Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  source       Source         @relation(fields: [sourceId], references: [id])
+  topics       ContentTopic[]
+  adminReviews AdminReview[]
+
+  @@index([sourceId])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([score])
+  @@map("content_items")
+}
+
+model Topic {
+  id          String @id @default(cuid())
+  name        String @unique
+  nameZh      String?
+  slug        String @unique
+  description String?
+  color       String @default("#15803D")
+
+  contentTopics ContentTopic[]
+
+  @@map("topics")
+}
+
+model ContentTopic {
+  id            String @id @default(cuid())
+  contentItemId String
+  topicId       String
+  confidence    Float  @default(1.0)
+
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  topic       Topic       @relation(fields: [topicId], references: [id])
+
+  @@unique([contentItemId, topicId])
+  @@index([topicId])
+  @@map("content_topics")
+}
+
+model Subscriber {
+  email           String           @id
+  status          SubscriberStatus @default(PENDING)
+  confirmToken    String?          @unique
+  confirmedAt     DateTime?
+  unsubscribedAt  DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  deliveries NewsletterDelivery[]
+
+  @@map("subscribers")
+}
+
+model NewsletterCampaign {
+  id        String         @id @default(cuid())
+  sendDate  DateTime
+  subject   String
+  htmlBody  String         @db.Text
+  textBody  String?        @db.Text
+  status    CampaignStatus @default(DRAFT)
+  sentCount Int            @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  deliveries NewsletterDelivery[]
+
+  @@map("newsletter_campaigns")
+}
+
+model NewsletterDelivery {
+  id              String    @id @default(cuid())
+  campaignId      String
+  subscriberEmail String
+  status          String    @default("pending")
+  errorMessage    String?
+  sentAt          DateTime?
+  openedAt        DateTime?
+  clickedAt       DateTime?
+  bouncedAt       DateTime?
+
+  campaign    NewsletterCampaign @relation(fields: [campaignId], references: [id])
+  subscriber  Subscriber         @relation(fields: [subscriberEmail], references: [email])
+
+  @@unique([campaignId, subscriberEmail])
+  @@index([campaignId])
+  @@index([subscriberEmail])
+  @@map("newsletter_deliveries")
+}
+
+model AdminReview {
+  id               String   @id @default(cuid())
+  contentItemId    String
+  approved         Boolean
+  editedSummary    String?  @db.Text
+  editedTakeaway   String?  @db.Text
+  notes            String?
+  reviewedAt       DateTime @default(now())
+
+  contentItem ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@index([contentItemId])
+  @@map("admin_reviews")
+}

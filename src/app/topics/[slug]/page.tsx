@@ -1,26 +1,39 @@
-import { db } from "@/lib/db";
-import { ContentCard } from "@/components/content/ContentCard";
-import { TriggerIngestButton } from "@/components/content/TriggerIngestButton";
-import Link from "next/link";
-
 export const dynamic = "force-dynamic";
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { db } from "@/lib/db";
+import { TOPICS, TOPIC_COLORS } from "@/lib/constants";
+import { ContentCard } from "@/components/content/ContentCard";
+
+interface Props {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ page?: string }>;
+}
 
 const PAGE_SIZE = 20;
 
-interface Props {
-  searchParams: Promise<{ page?: string; topic?: string }>;
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const topic = TOPICS.find((t) => t.slug === slug);
+  if (!topic) return {};
+  return { title: `${topic.name} — AIInfoHub` };
 }
 
-export default async function HomePage({ searchParams }: Props) {
-  const { page: pageParam, topic } = await searchParams;
+export default async function TopicPage({ params, searchParams }: Props) {
+  const { slug } = await params;
+  const { page: pageParam } = await searchParams;
+  const topic = TOPICS.find((t) => t.slug === slug);
+  if (!topic) notFound();
+
   const page = Math.max(1, parseInt(pageParam ?? "1", 10));
   const skip = (page - 1) * PAGE_SIZE;
-
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
   const where = {
     status: "PUBLISHED" as const,
     publishedAt: { gte: sevenDaysAgo },
-    ...(topic ? { topics: { some: { topic: { slug: topic } } } } : {}),
+    topics: { some: { topic: { slug } } },
   };
 
   const [items, total] = await Promise.all([
@@ -42,17 +55,16 @@ export default async function HomePage({ searchParams }: Props) {
   ]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const color = TOPIC_COLORS[slug] ?? "var(--green)";
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-semibold mb-1" style={{ fontFamily: "var(--font-spectral)", color: "var(--text-primary)" }}>
-          AI Intelligence Feed
+        <h1 className="text-3xl font-semibold mb-1" style={{ color }}>
+          {topic.name}
         </h1>
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          {total > 0
-            ? `${total} curated updates from official AI company blogs and expert commentary.`
-            : "Curated updates from official AI company blogs and expert commentary."}
+          {topic.nameZh} — {total} published in the last 7 days
         </p>
       </div>
 
@@ -63,9 +75,7 @@ export default async function HomePage({ searchParams }: Props) {
         >
           <p className="font-medium mb-2">No content yet</p>
           <p className="text-sm">
-            The ingestion pipeline will populate this feed. If you&apos;re an admin,{" "}
-            <TriggerIngestButton />{" "}
-            or wait for the daily cron job.
+            Nothing published for this topic in the last 7 days.
           </p>
         </div>
       ) : (
@@ -91,12 +101,11 @@ export default async function HomePage({ searchParams }: Props) {
             ))}
           </div>
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 mt-8">
               {page > 1 && (
                 <Link
-                  href={`/?page=${page - 1}${topic ? `&topic=${topic}` : ""}`}
+                  href={`/topics/${slug}?page=${page - 1}`}
                   className="px-4 py-2 rounded-lg border text-sm transition-colors hover:bg-[var(--bg-hover)]"
                   style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
                 >
@@ -108,7 +117,7 @@ export default async function HomePage({ searchParams }: Props) {
               </span>
               {page < totalPages && (
                 <Link
-                  href={`/?page=${page + 1}${topic ? `&topic=${topic}` : ""}`}
+                  href={`/topics/${slug}?page=${page + 1}`}
                   className="px-4 py-2 rounded-lg border text-sm transition-colors hover:bg-[var(--bg-hover)]"
                   style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
                 >
