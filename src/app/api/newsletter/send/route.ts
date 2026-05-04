@@ -20,8 +20,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const start = Date.now();
 
   try {
-    // Fetch today's top published items (last 24 h, score >= 0.5, max 10)
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // Use last successful campaign's send time as the lower bound so we never
+    // resend items already included in a previous newsletter. Fall back to 48h.
+    const lastCampaign = await db.newsletterCampaign.findFirst({
+      where: { status: "SENT" },
+      orderBy: { sendDate: "desc" },
+    });
+    const fallbackSince = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    const since = lastCampaign ? lastCampaign.sendDate : fallbackSince;
+
     const contentItems = await db.contentItem.findMany({
       where: {
         status: "PUBLISHED",

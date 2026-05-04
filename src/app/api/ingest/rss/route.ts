@@ -34,6 +34,8 @@ export async function POST(req: NextRequest) {
     let totalNew = 0;
     let totalEnriched = 0;
 
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
     for (const source of sources) {
       if (!source.rssUrl) continue;
 
@@ -44,7 +46,12 @@ export async function POST(req: NextRequest) {
         const newItems = await deduplicateItems(items);
         totalNew += newItems.length;
 
-        const stored = await storeItems(source.id, newItems);
+        // Only store and enrich articles published within the last 30 days
+        const recentItems = newItems.filter(
+          (item) => !item.publishedAt || item.publishedAt >= thirtyDaysAgo
+        );
+
+        const stored = await storeItems(source.id, recentItems);
 
         // Enrich each new item
         for (const record of stored) {

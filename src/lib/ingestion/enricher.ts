@@ -71,7 +71,7 @@ export async function enrichItem(contentItemId: string): Promise<void> {
 export async function publishEnrichedItems(minScore = 0.3): Promise<number> {
   const result = await db.contentItem.updateMany({
     where: { status: "ENRICHED", score: { gte: minScore } },
-    data: { status: "PUBLISHED", publishedAt: new Date() },
+    data: { status: "PUBLISHED" },
   });
   return result.count;
 }
