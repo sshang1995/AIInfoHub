@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { ContentCard } from "@/components/content/ContentCard";
 import { TriggerIngestButton } from "@/components/content/TriggerIngestButton";
+import { SubscriptionPopup } from "@/components/newsletter/SubscriptionPopup";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +46,7 @@ export default async function HomePage({ searchParams }: Props) {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      <SubscriptionPopup />
       <div className="mb-8">
         <h1 className="text-3xl font-semibold mb-1" style={{ fontFamily: "var(--font-spectral)", color: "var(--text-primary)" }}>
           AI Intelligence Feed
